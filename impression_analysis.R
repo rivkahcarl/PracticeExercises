@@ -1,50 +1,3 @@
-# Project:  An executive, John, has come to you with a theory that muted impressions may perform 
-# better according to certain metrics.  Using the attached spreadsheet of data, see if John’s theory is correct.  
-# If its not, prove it.  
-# 1) Are muted impressions actually worse or the same?  
-# 2) If it is, how would you recommend we leverage that knowledge? 
-# 3) What type of inventory would we want to target for certain types of campaigns?  
-# 4) How would we price those campaigns?  Is there any risk involved in selling this way?  
-# Put together 3-5 slides (PowerPoint, Google Slides, whatever you prefer) for an informal presentation to John and our Director of Analytics 
-# demonstrating how you think we should proceed and why.
-
-# As a reminder, here’s a list of the performance metrics that we monitor for each campaign:
-# •	Total impressions served
-# •	Click Through Rate (CTR) - % of impressions where the user actually clicked on the ad and was sent to the brand’s website
-# •	Video Completion Rate (VCR) - % of impressions that played all the way to the end of the ad
-# •	Viewability - % of impressions that were actually on the screen (as opposed to being off the screen at the bottom of the page) while the ad was playing
-# •	Margin % - How much money are we making from this campaign? 
-# The margin is simply ((what the client is paying) - (what we have to pay the exchanges)) / (what the client is paying).  The win_price is the amount we have to pay the exchange, but we obviously charge our clients more for the service we provide. 
-# Just for fun, let’s assume 100% markup.  So if we contract with nike for $20 per 1,000 impressions, 
-# we’ll try our best to buy from the exchanges at $10.
-
-# Currently our clients either pay us per impression, viewable impression, or completion.  
-# For simplicity, assume these are the only contract types that we offer as of now.  
-# We sell viewable impressions for more because they’re harder to come by.  
-# We don’t know in advance if an impression will be viewable, but we do find out after the view plays.  
-# We can however try to predict this based on historical data.  
-# Completions are even more expensive, for the same reasons.  We don’t know in advance if an impression will complete (play to the end).  
-# We can only try to predict this based on historical data. In either case, we’ll usually have to serve multiple impressions before one of them is viewable or completes respectively.  
-# Note that we talk about prices by the 1,000 so when we say someone is paying us “$50 for completions” 
-# we actually mean “$50 for 1,000 completions”. We call this CPM or cost per thousand.
-
-# Let’s take an example contract.  Say Nike has a contract with us to pay $40 for every 1,000 completions.  
-# We end up serving 2,000 impressions, in order to get the 1,000 completions, at an average cost of $15 CPM.  
-# In that case we had a VCR of 50% and a margin of 25%. Nike paid us $40 for the 1,000 completions, 
-# we paid the exchanges $30, ($40-$30)/$40=10%.
-
-# The section should look familiar from your first interview.  It provides a little context about digital video advertising and describes every column in the attached spreadsheet.  Don’t worry about the fact that we’ve only given you 5,000 impression worth of data.  Assume that the data provided is representative of reality in terms of percentages and trends.
-
-# Context:  In digital advertising, every time a web page with an advertisement loads, 
-# there is an auction that happens in about 1/10th of a second, to decide which company (such as Eyeview) 
-# gets to show an ad and how much they’re going to pay to do it. The company that bids the highest, wins and 
-# gets to show whatever ad they want.  However, the amount they actually pay to show the ad is the second highest bid. 
-#  This is called a second-price auction.  The company that hosts these auctions is called an exchange, 
-# and there are several major exchanges currently operating in the US. In advertising, every time we show a video ad 
-# we call it an impression.    That impression was served as part of a specific campaign, 
-# say the Nike Spring Sporting Goods Campaign.
-
-
 current_dir <- getwd()
 csv_path <- paste(current_dir, "/RivkahPersonal/PracticeExercises/sampledata.csv", sep="")
 all_data <- read.csv(csv_path, header=TRUE, stringsAsFactors=FALSE)
@@ -85,8 +38,6 @@ all_data$win_price <- as.numeric(gsub("\\$", "", all_data$win_price))
 total_ctr <- sum(all_data$clicks)/ nrow(all_data)
 # Out of 5000 impressions only 33 clicked through for 0.0066 or .66 % of people clicked. 
 # Question: Now check percent of those that are muted: 11 were muted 
-all_data_clicked <- subset(all_data, all_data$clicks != 0)
-perc_muted_from_clicked <- nrow(all_data_clicked[all_data_clicked$sound == "FALSE",])/ nrow(all_data_clicked)
 # Muted from those are: 0.4230769
 # Non-muted: 0.5769231
 ########## POINT 1: Simple measuring of click through rate, muted impressions seem to have a little if not worse effect.
@@ -95,7 +46,7 @@ perc_muted_from_clicked <- nrow(all_data_clicked[all_data_clicked$sound == "FALS
 # Only > 1394/5000
 # [1] 0.2788
 # to begin with were served muted. So ratio of muted to non-muted is ~ 1394:3606 or 1:2.5
-# Which means 11/1394 is a 0.0078909 rate, while 25/3606 is only .00693289 
+# Which means 11/1394 is a 0.0078909 rate, while 22/3606 is only .006100943 
 
 # 3) Video Completion Rate (VCR) - % of impressions that played all the way to the end of the ad
 # Out of 5000 impressions, 2554 impressions were completed 0.5108 or ~ 51% completed.
@@ -128,18 +79,22 @@ perc_muted_from_viewable <- nrow(all_data_viewable[all_data_viewable$sound == "F
 # Now take a look at the fourth- 
 all_data_bool_sound <- all_data
 all_data_bool_sound$sound <- ifelse(all_data_bool_sound$sound == 'FALSE', 1, 0)
+all_data_bool_sound$viewable <- ifelse(all_data_bool_sound$viewable == 'TRUE', 1, 0)
 
 margin_df_cnt <- setNames(aggregate(adviewing_id~ campaign_id, all_data_bool_sound, length), c("campaign_id", "number_of_impressions"))
-margin_df_price_mute <- setNames(aggregate(cbind(sound, clicks, completions, win_price)~ campaign_id, all_data_bool_sound, sum, na.rm = TRUE), c("campaign_id", "sum_muted","sum_clicks", "sum_completions", "sum_win_price"))
+margin_df_price_mute <- setNames(aggregate(cbind(sound, clicks, completions, viewable, win_price)~ campaign_id, all_data_bool_sound, sum, na.rm = TRUE), c("campaign_id", "sum_muted","sum_clicks", "sum_completions", "sum_viewable", "sum_win_price"))
 
 margin_df <- merge(margin_df_cnt, margin_df_price_mute, by="campaign_id")
 margin_df$perc_muted <- margin_df$sum_muted / margin_df$number_of_impressions
 margin_df$perc_clicks <- margin_df$sum_clicks / margin_df$number_of_impressions
 margin_df$perc_completions <- margin_df$sum_completions / margin_df$number_of_impressions
+margin_df$perc_viewable <- margin_df$sum_viewable / margin_df$number_of_impressions
 margin_df$avg_impression_price <- margin_df$sum_win_price / margin_df$number_of_impressions
 margin_df <- margin_df[order(-margin_df$perc_muted),]
 #### Not sure that was helpful calculation considering- does not look like compaign costs in total prove to be any cheaper
 # than campaigns with less perc_muted. This might be a reason to consider muted impressions more. 
+margin_df_sub <- margin_df[,c("campaign_id", "number_of_impressions", "sum_win_price", "perc_muted", "perc_clicks", "perc_completions", "perc_viewable", "avg_impression_price")]
+
 
 # Also check individual price from original dataset
 price_df <- setNames(as.data.frame(cbind(all_data$win_price, all_data$sound)), c("win_price", "sound"))
@@ -179,7 +134,9 @@ qplot(timestamp, win_price, data = price_df, colour = sound)
 all_data_ten <- subset(all_data, all_data$win_price < 10.00)
 
 
-# Let’s take an example contract.  Say Nike has a contract with us to pay $40 for every 1,000 completions.  We end up serving 2,000 impressions, in order to get the 1,000 completions, at an average cost of $15 CPM.  In that case we had a VCR of 50% and a margin of 25%. Nike paid us $40 for the 1,000 completions, we paid the exchanges $30, ($40-$30)/$40=10%.
+# Let’s take an example contract.  Say Nike has a contract with us to pay $40 for every 1,000 completions.  
+# We end up serving 2,000 impressions, in order to get the 1,000 completions, at an average cost of $15 CPM.  
+# In that case we had a VCR of 50% and a margin of 25%. Nike paid us $40 for the 1,000 completions, we paid the exchanges $30, ($40-$30)/$40=10%.
 # Take another sample contract- if completion rate 
 
 
