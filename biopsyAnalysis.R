@@ -1,5 +1,6 @@
 library(sqldf)
 library(plyr)
+library(reshape)
 
 setwd("/Users/rivkahcarl/Desktop/")
 
@@ -87,17 +88,17 @@ cat("Total Number of Patients with Non Targeted Biopsies", nonTargetedCount)
 radi1 <- biop1[, c("radiologist", "isTargeted")]
 table(radi1)
 
-xx <- aggregate(radi1, by=list(radi1$radiologist, radi1$isTargeted), FUN=length)
+countRadiolCaseload <- aggregate(radi1, by=list(radi1$radiologist, radi1$isTargeted), FUN=length)
 
-xx$radiologist <- NULL
-xx <- rename(xx, c("Group.1"="radiologist", "isTargeted"="CountOfCases",  "Group.2"="isTargeted" ))
-xx$isTargeted <- gsub("0", "nonTargeted", xx$isTargeted)
-xx$isTargeted <- gsub("1", "Targeted", xx$isTargeted)
-library(reshape)
-yy <- as.data.frame(cast(xx, radiologist ~ isTargeted, sum))
-yy$totalCases <- yy$Targeted + yy$nonTargeted
-yy$prctNonTargeted <- yy$nonTargeted / yy$totalCases
-yy$prctTargeted <- yy$Targeted / yy$totalCases
+countRadiolCaseload$radiologist <- NULL
+countRadiolCaseload <- rename(countRadiolCaseload, c("Group.1"="radiologist", "isTargeted"="CountOfCases",  "Group.2"="isTargeted" ))
+countRadiolCaseload$isTargeted <- gsub("0", "nonTargeted", countRadiolCaseload$isTargeted)
+countRadiolCaseload$isTargeted <- gsub("1", "Targeted", countRadiolCaseload$isTargeted)
+
+countRadiolTargetCounts <- as.data.frame(cast(countRadiolCaseload, radiologist ~ isTargeted, sum, value = "CountOfCases"))
+countRadiolTargetCounts$totalCases <- countRadiolTargetCounts$Targeted + countRadiolTargetCounts$nonTargeted
+countRadiolTargetCounts$prctNonTargeted <- countRadiolTargetCounts$nonTargeted / countRadiolTargetCounts$totalCases
+countRadiolTargetCounts$prctTargeted <- countRadiolTargetCounts$Targeted / countRadiolTargetCounts$totalCases
 
 
 # List of cases where nonTargeted and >= 6
@@ -115,6 +116,7 @@ biop2 <- subset(biop1, biop1$isTargeted == '0' &
                     (biop1$pathologyRMMLarger + biop1$pathologyRMMSmaller) >= 6 | 
                     (biop1$pathologyRMALarger + biop1$pathologyRMASmaller) >= 6))
 
+cat("Total Number of Patients with Non Targeted Biopsies where >= 6", nrow(biop2))
 write.csv(biop2, "AllDataNonTargetedGreaterThan6.csv", row.names=F)
 
 
@@ -122,7 +124,7 @@ write.csv(biop2, "AllDataNonTargetedGreaterThan6.csv", row.names=F)
 biop2Radi <- aggregate(biop2, by=list(biop2$radiologist), FUN=length)[, c("Group.1", "msr")]
 biop2Radi <- rename(biop2Radi, c("Group.1"="radiologist", "msr"="nonTargetedButGreaterThan6"))
 
-biopFalseNonTarget <- merge(yy, biop2Radi, by=c("radiologist"))
+biopFalseNonTarget <- merge(countRadiolTargetCounts, biop2Radi, by=c("radiologist"))
 biopFalseNonTarget$prctNonTargetedErrorAsPrctOfNonTargetedCases <- biopFalseNonTarget$nonTargetedButGreaterThan6/biopFalseNonTarget$nonTargeted
 biopFalseNonTarget$prctNonTargetedErrorAsPrctOfTotalCases <- biopFalseNonTarget$nonTargetedButGreaterThan6/biopFalseNonTarget$totalCases
 
@@ -142,6 +144,33 @@ biop3 <- biop2[, c("radiologist", "biopsyDate", "psa", "prostateSizeCC",
                    "pathologyRMMLarger", "pathologyRMMSmaller", 
                    "pathologyRMBLarger", "pathologyRMBSmaller"
                    )]
+
+#Focus on the Targeted Cases and where it was benign
+
+biop4 <- subset(biop1, biop1$isTargeted == '1' & 
+                  (biop1$LLA == 'benign' & biop1$LLM == 'benign' & biop1$LLB == 'benign' & biop1$LMB == 'benign' & biop1$LMM == 'benign' & 
+                     biop1$LMA == 'benign' & biop1$RLA== 'benign' & biop1$RLM== 'benign' & biop1$RLB == 'benign' & biop1$RMB == 'benign' & 
+                     biop1$RMM == 'benign' & biop1$RMA== 'benign'))
+
+cat("Total Number of Patients with Targeted Biopsies where all areas are 'benign'", nrow(biop4))
+write.csv(biop4, "AllDataTargetedButBenign.csv", row.names=F)
+
+biop4Radi <- aggregate(biop4, by=list(biop4$radiologist), FUN=length)[, c("Group.1", "msr")]
+biop4Radi <- rename(biop4Radi, c("Group.1"="radiologist", "msr"="TargetedButBenign"))
+
+# Per Radiologist Targeted and Non Targeted 
+biopFalseTarget <- merge(countRadiolTargetCounts, biop4Radi, by=c("radiologist"))
+biopFalseTarget$prctTargetedErrorAsPrctOfTargetedCases <- biopFalseTarget$TargetedButBenign/biopFalseTarget$Targeted
+biopFalseTarget$prctTargetedErrorAsPrctOfTotalCases <- biopFalseTarget$TargetedButBenign/biopFalseTarget$totalCases
+
+# Per Radiologist All Errors Combined
+biopFalseAllErrors <- merge(biopFalseNonTarget, biop4Radi, by=c("radiologist"))
+biopFalseAllErrors$prctTargetedErrorAsPrctOfTargetedCases <- biopFalseAllErrors$TargetedButBenign/biopFalseAllErrors$Targeted
+biopFalseAllErrors$prctTargetedErrorAsPrctOfTotalCases <- biopFalseAllErrors$TargetedButBenign/biopFalseAllErrors$totalCases
+
+write.csv(biopFalseTarget, "PerRadiologistCasesOfTargetButBenign.csv", row.names = F)
+write.csv(biopFalseAllErrors, "PerRadiologistAllCasesOfError.csv", row.names=F)
+
 
 #xx <- sqldf("Select isTargeted
 #              , radiologist
